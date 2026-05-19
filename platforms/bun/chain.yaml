@@ -1,0 +1,4 @@
+# platforms/bun/chain.yaml
+# Bun chains the typescript overlay.
+chain:
+  - typescript
