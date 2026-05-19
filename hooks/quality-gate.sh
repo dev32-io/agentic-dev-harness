@@ -19,7 +19,7 @@ esac
 
 # ─── Platform detection ───
 detect_platform() {
-  if [ -f package.json ] && [ -f bun.lockb ]; then
+  if [ -f package.json ] && { [ -f bun.lockb ] || [ -f bun.lock ]; }; then
     echo bun
   elif [ -f package.json ]; then
     echo node
