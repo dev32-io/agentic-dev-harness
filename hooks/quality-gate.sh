@@ -72,6 +72,8 @@ run_android() {
 }
 
 run_ios() {
+  SCHEME="${ADH_IOS_SCHEME:-App}"
+  DEST="${ADH_IOS_DEST:-platform=iOS Simulator,name=iPhone 15}"
   case "$1" in
     lint)
       if command -v swiftlint >/dev/null 2>&1; then
@@ -80,15 +82,16 @@ run_ios() {
         echo "swiftlint not installed; skipping lint" >&2
       fi
       ;;
-    typecheck) xcodebuild build -quiet ;;
-    test)      xcodebuild test -quiet ;;
+    typecheck) xcodebuild build -scheme "$SCHEME" -destination "$DEST" -quiet ;;
+    test)      xcodebuild test  -scheme "$SCHEME" -destination "$DEST" -quiet ;;
     all)
       if command -v swiftlint >/dev/null 2>&1; then
         swiftlint
       else
         echo "swiftlint not installed; skipping lint" >&2
       fi
-      xcodebuild build -quiet && xcodebuild test -quiet
+      xcodebuild build -scheme "$SCHEME" -destination "$DEST" -quiet \
+        && xcodebuild test -scheme "$SCHEME" -destination "$DEST" -quiet
       ;;
   esac
 }
