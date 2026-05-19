@@ -1,0 +1,7 @@
+# platforms/typescript/chain.yaml
+# This overlay is shared. The platforms below auto-chain it when --platforms
+# includes any of them and --no-chain is not passed.
+chained-by:
+  - web
+  - node
+  - bun
