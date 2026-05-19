@@ -48,7 +48,9 @@ check_frontmatter() {
     for f in "$dir"/*.md; do
         [ -e "$f" ] || continue
         result=$(awk '
+            { sub(/\r$/, "") }
             NR == 1 {
+                sub(/^\xef\xbb\xbf/, "")
                 if ($0 != "---") { state="no-open"; exit }
                 next
             }
@@ -94,7 +96,8 @@ check_no_lang_glob_in_base() {
         [ -e "$f" ] || continue
         # Extract the paths: line(s) from frontmatter only.
         paths_line=$(awk '
-            NR == 1 && $0 != "---" { exit }
+            { sub(/\r$/, "") }
+            NR == 1 { sub(/^\xef\xbb\xbf/, ""); if ($0 != "---") exit }
             NR > 1 && /^---[[:space:]]*$/ { exit }
             NR > 1 && /^paths:/ { print; exit }
         ' "$f")
