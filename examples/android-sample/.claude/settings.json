@@ -1,0 +1,26 @@
+{
+  "_comment": "Example .claude/settings.json showing the TWO-HOOK pair that gives the e2e mandate its CI teeth. Merge these hooks into your target project's .claude/settings.json. Both hooks are required.",
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "scripts/quality-gate.sh typecheck 2>&1 | tail -5"
+          }
+        ]
+      }
+    ],
+    "TaskCompleted": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "scripts/quality-gate.sh all 2>&1 | tail -20"
+          }
+        ]
+      }
+    ]
+  }
+}
