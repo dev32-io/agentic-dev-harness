@@ -1,0 +1,4 @@
+# platforms/node/chain.yaml
+# Node chains the typescript overlay.
+chain:
+  - typescript
