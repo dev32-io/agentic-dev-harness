@@ -1,0 +1,4 @@
+# platforms/ios/chain.yaml
+# iOS chains the shared mobile overlay.
+chain:
+  - mobile
