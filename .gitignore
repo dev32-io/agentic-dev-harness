@@ -1,0 +1,26 @@
+# Superpowers planning artifacts — kept locally, never committed.
+# Brainstorms, specs, and writing-plans outputs live in docs/superpowers/
+# but are private working state, not part of the public repo.
+docs/superpowers/
+
+# Plans
+plans/
+.plans/
+
+# Local scratch
+.scratch/
+TODO.local.md
+
+# OS / editor
+.DS_Store
+*.swp
+*.swo
+.vscode/
+.idea/
+
+# Node / Bun
+node_modules/
+dist/
+build/
+.env
+.env.local
