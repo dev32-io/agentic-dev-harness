@@ -1,0 +1,4 @@
+# platforms/android/chain.yaml
+# Android chains the shared mobile overlay.
+chain:
+  - mobile
