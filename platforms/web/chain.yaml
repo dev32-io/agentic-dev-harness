@@ -1,0 +1,4 @@
+# platforms/web/chain.yaml
+# Web chains the typescript overlay.
+chain:
+  - typescript
