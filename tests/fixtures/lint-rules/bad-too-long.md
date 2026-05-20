@@ -1,5 +1,5 @@
 ---
-description: fixture that violates the 100-line cap.
+description: fixture that exceeds the line-count cap (intentionally oversized for self-test).
 paths: "**/*.kt"
 ---
 

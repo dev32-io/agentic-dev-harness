@@ -16,4 +16,4 @@ Single sentence describing what this rule protects.
 
 - Single imperative.
 
-See `tests/fixtures/lint-rules/good-details.md` for examples + rationale.
+See `tests/fixtures/lint-rules/good-rule-details.md` for examples + rationale.
