@@ -7,8 +7,10 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		1F77B91400D7150F55098022 /* CounterRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB54E7C80F9474A95A9FA1A9 /* CounterRepository.swift */; };
 		2BBBECCEC52AF70E45A0EE35 /* ContentViewModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 99E15087212BEDF75005EFCD /* ContentViewModelTests.swift */; };
 		301FBC8EDBE41F9BCFA28802 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B63B75B3B10B54DCB9C66F96 /* ContentView.swift */; };
+		4A5A6F9C99BA2F5A07CAE0C5 /* CounterViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 86CB050AB13FD9161B9B511B /* CounterViewModel.swift */; };
 		DAF1FC234F33C5CFEC57ABCC /* AppApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0FA889B25C594D5243A269A4 /* AppApp.swift */; };
 /* End PBXBuildFile section */
 
@@ -26,7 +28,9 @@
 		0FA889B25C594D5243A269A4 /* AppApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppApp.swift; sourceTree = "<group>"; };
 		49D88A349FD70A9153DD2C03 /* App.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = App.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		70FBD15B60B003AAE2FE5530 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
+		86CB050AB13FD9161B9B511B /* CounterViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CounterViewModel.swift; sourceTree = "<group>"; };
 		99E15087212BEDF75005EFCD /* ContentViewModelTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentViewModelTests.swift; sourceTree = "<group>"; };
+		AB54E7C80F9474A95A9FA1A9 /* CounterRepository.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CounterRepository.swift; sourceTree = "<group>"; };
 		B63B75B3B10B54DCB9C66F96 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
 		C8A9A2F9E029400EE1562218 /* AppTests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = AppTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
@@ -46,6 +50,8 @@
 			children = (
 				0FA889B25C594D5243A269A4 /* AppApp.swift */,
 				B63B75B3B10B54DCB9C66F96 /* ContentView.swift */,
+				AB54E7C80F9474A95A9FA1A9 /* CounterRepository.swift */,
+				86CB050AB13FD9161B9B511B /* CounterViewModel.swift */,
 				70FBD15B60B003AAE2FE5530 /* Info.plist */,
 			);
 			path = App;
@@ -144,6 +150,8 @@
 			files = (
 				DAF1FC234F33C5CFEC57ABCC /* AppApp.swift in Sources */,
 				301FBC8EDBE41F9BCFA28802 /* ContentView.swift in Sources */,
+				1F77B91400D7150F55098022 /* CounterRepository.swift in Sources */,
+				4A5A6F9C99BA2F5A07CAE0C5 /* CounterViewModel.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
