@@ -194,6 +194,7 @@ if [ -d "$ROOT/platforms" ]; then
             if [ "$plat_name" = "$MOBILE_OVERLAY_PLATFORM" ]; then
                 check_loc_strict "$plat_rules" 40
             else
+                # TODO(phase-3/phase-4): drop cap to 40 after android/ios rule rewrites land.
                 check_loc_strict "$plat_rules" 100
             fi
             check_no_code_blocks "$plat_rules"
