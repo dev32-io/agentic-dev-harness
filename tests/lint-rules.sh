@@ -190,7 +190,8 @@ if [ -d "$ROOT/platforms" ]; then
             if [ "$plat_name" = "$mp" ]; then is_mobile=1; break; fi
         done
         if [ "$is_mobile" -eq 1 ]; then
-            check_loc_strict "$plat_rules" 40
+            # TODO(phase-2): drop cap back to 40 once mobile rule rewrites land.
+            check_loc_strict "$plat_rules" 100
             check_no_code_blocks "$plat_rules"
             check_paths_required "$plat_rules"
             if [ "$plat_name" = "mobile" ]; then

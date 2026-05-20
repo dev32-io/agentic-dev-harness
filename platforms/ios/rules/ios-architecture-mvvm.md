@@ -42,9 +42,7 @@ methods does the view call?" When a rule is unclear, see
 
 ## Layer boundaries -- no skipping
 
-```
-View  ->  ViewModel  ->  UseCase  ->  Repository  ->  Service
-```
+Layer order: View -> ViewModel -> UseCase -> Repository -> Service.
 
 - View calls ONLY ViewModel methods.
 - ViewModel calls ONLY UseCases (or, for simple screens,

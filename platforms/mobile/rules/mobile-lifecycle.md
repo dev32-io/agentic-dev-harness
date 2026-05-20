@@ -1,5 +1,6 @@
 ---
 description: Mobile lifecycle -- background/foreground transitions, process death restore, flush-on-background.
+paths: "**/*.kt,**/*.kts,**/*.swift"
 ---
 
 # Mobile Lifecycle

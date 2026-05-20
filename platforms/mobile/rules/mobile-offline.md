@@ -1,5 +1,6 @@
 ---
 description: Mobile offline-first -- observable network state, local cache, outbox sync with idempotency.
+paths: "**/*.kt,**/*.kts,**/*.swift"
 ---
 
 # Mobile Offline-First

@@ -1,5 +1,6 @@
 ---
 description: Mobile navigation -- typed routes, state-aware deep links, defined back behavior.
+paths: "**/*.kt,**/*.kts,**/*.swift"
 ---
 
 # Mobile Navigation
