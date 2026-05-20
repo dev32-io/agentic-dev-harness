@@ -1,69 +1,40 @@
 ---
-description: Mobile lifecycle -- background/foreground transitions, process death restore, flush-on-background.
+description: Mobile lifecycle -- transitions, process death restore, flush-on-background, FGS, permissions, deferred work.
 paths: "**/*.kt,**/*.kts,**/*.swift"
 ---
 
 # Mobile Lifecycle
 
-Mobile processes are not long-running. The OS suspends, kills,
-and resurrects them on its own schedule. Code that assumes a
-continuous process is code with bugs the agent has not yet seen.
-When a rule is unclear, see
-`platforms/mobile/docs/mobile-lifecycle-details.md`.
+The OS suspends, kills, and resurrects mobile processes on its own schedule. Treat every transition as routine, not exceptional.
 
-## Background → foreground is a first-class state
+## Transitions — first-class state
 
-- The transition is NOT an edge case. It is a state every screen
-  passes through, often many times per session.
-- On returning to foreground, code MUST refresh staleable inputs
-  (clocks, auth tokens nearing expiry, network reachability) and
-  re-establish observers (timers, sockets, location streams).
-- Tests cover the full triple: cold start, background+resume,
-  background+killed+restore. Two of three is not coverage.
+- Background → foreground is a state, not an edge case.
+- On resume: refresh staleable inputs (clocks, tokens, reachability); re-establish observers.
+- Cover the triple: cold start, background+resume, background+kill+restore.
 
-## Process death + restore -- every screen rebuilds
+## Process death + restore — every screen rebuilds
 
-- The OS may kill the process at any point while backgrounded.
-  When the user taps the app icon, the system may either start
-  fresh OR restore the prior screen stack with saved state.
-- Every screen MUST be able to rebuild from a small, serializable
-  snapshot of its inputs (route arguments + persisted IDs).
-- Screens MUST NOT depend on in-memory singletons surviving --
-  those singletons did not survive. Reach for the persistent
-  store on restore.
+- Every screen rebuilds from a small, serializable snapshot (route args + persisted IDs).
+- Do NOT depend on in-memory singletons surviving restore; reach for the persistent store.
 
-## Resume-from-deep-link is DISTINCT from cold-launch-from-deep-link
+## Background entry — flush within seconds
 
-- Cold launch: process is starting; auth state, feature flags,
-  and stores are loading; the deep link must wait for readiness.
-- Resume: process is alive; the deep link may arrive while a
-  user is mid-task on a different screen; the navigator must
-  decide whether to stack, replace, or defer.
-- BOTH paths are tested. A deep link that works on cold launch
-  but corrupts state on resume is a real, common bug.
+- Flush in-flight writes to durable storage in the platform's short budget.
+- Long work is wrong-shaped; split + persist intent + resume later.
 
-## Background entry MUST flush pending writes
+## Foreground services — typed in manifest AND at start (G4)
 
-- When the system signals "you are about to lose foreground
-  time," in-flight writes (drafts, partial form input, queued
-  outbox entries) MUST be flushed to durable storage within the
-  platform's short budget.
-- The budget is small (single-digit seconds). Long work is the
-  wrong shape -- split it; persist the intent; resume later.
-- Code that assumes "we'll finish on the next tick" loses data
-  on first hard kill.
+- Android 14+ requires `foregroundServiceType` in manifest AND on `startForeground(...)`.
+- Pick the narrowest type (`dataSync`, `mediaPlayback`, `location`). Wear/TV/Auto separate.
 
-## Observability of lifecycle events
+## Deferred work + permissions (G6/G8)
 
-- Log every lifecycle transition (foreground, background, will-
-  terminate, restore) with a short, structured event.
-- These breadcrumbs are how the agent diagnoses "the bug only
-  happens after lunch break" -- the trail tells you the device
-  was backgrounded for 90 minutes between actions.
+- WorkManager (Android) and BGTaskScheduler (iOS) for periodic + constrained work.
+- NEVER schedule background work on a raw `Thread` / `DispatchQueue`.
+- POST_NOTIFICATIONS on Android 13+; ATT on iOS — request at point of use, not at launch.
+- Rationale UI before re-asking; settings-bounce-back fallback if denied permanently.
 
-## Why this discipline matters
-
-The agent that ships a mobile feature is not the agent that
-debugs it three months later. The lifecycle transitions are the
-seams where state desyncs hide. Treating them as routine, not
-exceptional, is how those bugs stay out of the field.
+## Observability
+- Log every transition (`foreground`, `background`, `will-terminate`, `restore`) as a structured event.
+- Android → `Lifecycle`+`WorkManager`+`ForegroundServiceType`; iOS → `scenePhase`+`BGTaskScheduler`+UIBackgroundModes. See `platforms/mobile/docs/mobile-lifecycle-details.md`.
