@@ -40,6 +40,18 @@ check_loc_strict() {
     done
 }
 
+check_no_code_blocks() {
+    dir="$1"
+    [ -d "$dir" ] || return 0
+    for f in "$dir"/*.md; do
+        [ -e "$f" ] || continue
+        if grep -nE '^[[:space:]]*(```|~~~)' "$f" >/dev/null; then
+            lineno=$(grep -nE '^[[:space:]]*(```|~~~)' "$f" | head -1 | cut -d: -f1)
+            fail "$f:$lineno: fenced code block not allowed in rule files (move to details)"
+        fi
+    done
+}
+
 # Check 2/3: every rule file in $1 has paired <name>-details.md in $2.
 check_paired() {
     rules_dir="$1"
