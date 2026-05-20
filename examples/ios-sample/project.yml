@@ -3,6 +3,15 @@ options:
   bundleIdPrefix: io.dev32.sample
   deploymentTarget:
     iOS: "17.0"
+configs:
+  Debug: debug
+  Release: release
+settings:
+  base:
+    SWIFT_VERSION: "6.0"
+    SWIFT_STRICT_CONCURRENCY: complete
+    SWIFT_UPCOMING_FEATURE_REGION_BASED_ISOLATION: YES
+    SWIFT_UPCOMING_FEATURE_ISOLATED_DEFAULT_VALUES: YES
 targets:
   App:
     type: application
@@ -12,9 +21,17 @@ targets:
       path: App/Info.plist
       properties:
         UILaunchScreen: {}
+        UISupportedInterfaceOrientations:
+          - UIInterfaceOrientationPortrait
+    settings:
+      base:
+        ENABLE_PREVIEWS: YES
   AppTests:
     type: bundle.unit-test
     platform: iOS
     sources: [Tests]
     dependencies:
       - target: App
+    settings:
+      base:
+        SWIFT_VERSION: "6.0"
