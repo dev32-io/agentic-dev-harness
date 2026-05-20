@@ -101,7 +101,7 @@ class LoginViewModel @Inject constructor(
             }
             LoginIntent.SubmitTapped -> submit()
             LoginIntent.ForgotPasswordTapped -> viewModelScope.launch {
-                _effects.emit(LoginEffect.NavigateToForgotPassword)
+                _effects.send(LoginEffect.NavigateToForgotPassword)
             }
             LoginIntent.Consumed.Navigation -> _state.update { it.copy(navigateTo = null) }
             LoginIntent.Consumed.Toast -> _state.update { it.copy(toast = null) }
@@ -116,7 +116,7 @@ class LoginViewModel @Inject constructor(
             when (val outcome = authRepository.login(current.email, current.password)) {
                 is LoginOutcome.Success -> {
                     _state.update { it.copy(isSubmitting = false) }
-                    _effects.emit(LoginEffect.NavigateToHome(outcome.userId))
+                    _effects.send(LoginEffect.NavigateToHome(outcome.userId))
                 }
                 is LoginOutcome.InvalidEmail -> _state.update {
                     it.copy(isSubmitting = false, emailError = outcome.reason)
@@ -126,7 +126,7 @@ class LoginViewModel @Inject constructor(
                 }
                 is LoginOutcome.NetworkFailure -> {
                     _state.update { it.copy(isSubmitting = false) }
-                    _effects.emit(LoginEffect.ShowError("Network unavailable"))
+                    _effects.send(LoginEffect.ShowError("Network unavailable"))
                 }
             }
         }
@@ -158,6 +158,7 @@ fun LoginScreen(
     viewModel: LoginViewModel = hiltViewModel(),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
+    val snackbarHostState = remember { SnackbarHostState() }
 
     LaunchedEffect(state.navigateTo) {
         state.navigateTo?.let { dest ->
