@@ -193,3 +193,74 @@ SideEffect {
 Pick by lifetime requirement: coroutine that should cancel
 (`LaunchedEffect`), resource that needs cleanup (`DisposableEffect`),
 fire-and-forget every frame (`SideEffect`).
+
+## Strong-skipping mode (audit A10)
+
+On Compose Compiler 2.0+ (default since 1.5.4 + on by default at 2.0.20), every restartable composable is skippable: at recomposition, params are compared by `equals()`, and on referential equality with the previous frame the body is skipped. Unstable params (e.g. `List<T>`, lambdas with captured state) are still tested; the framework compares by `===` (reference) and re-runs the body if changed.
+
+What this means in practice:
+
+- Annotating a `data class` of primitives with `@Immutable` no longer changes skippability — the compiler already infers it as stable.
+- Annotating `@Stable` on a class with expensive `equals()` still pays off — it tells the runtime to skip the comparison entirely when the reference is unchanged.
+- Lambdas: if the lambda doesn't capture mutable state, the compiler hoists it to a singleton — referentially stable. If it captures changing state, the lambda *is* unstable and the strong-skipping fallback runs.
+
+Measurement: enable Compose Compiler metrics:
+
+```kotlin
+composeCompiler {
+    metricsDestination = layout.buildDirectory.dir("compose_metrics")
+    reportsDestination = layout.buildDirectory.dir("compose_reports")
+}
+```
+
+Generates `module-metrics.json` and `composables.txt` showing skippable / restartable / inline counts per composable.
+
+## Adaptive layouts (audit G3)
+
+```kotlin
+val windowSizeClass = calculateWindowSizeClass(activity)
+when (windowSizeClass.widthSizeClass) {
+    WindowWidthSizeClass.Compact -> CompactLayout()
+    WindowWidthSizeClass.Medium  -> MediumLayout()
+    WindowWidthSizeClass.Expanded -> ExpandedLayout()
+}
+```
+
+Dependency: `androidx.compose.material3.adaptive:adaptive` + `androidx.compose.material3.adaptive:adaptive-layout`.
+
+For top-level adaptive navigation:
+
+```kotlin
+NavigationSuiteScaffold(navigationSuiteItems = { ... }) { content() }
+```
+
+Auto-switches between bottom nav / nav rail / nav drawer based on window size.
+
+## Edge-to-edge (audit A5)
+
+```kotlin
+class MainActivity : ComponentActivity() {
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        enableEdgeToEdge()
+        setContent { AppTheme { Surface { App() } } }
+    }
+}
+```
+
+Requires `androidx.activity:activity-compose:1.8.0+`. With targetSdk 35+ it is the **enforced default**; on Android 16 the opt-out flag is removed. Insets via `WindowInsets.safeDrawing`, `Modifier.safeDrawingPadding()`, or Material3 `Scaffold` which propagates insets to its content lambda.
+
+Theme: define `res/values/themes.xml`:
+
+```xml
+<resources>
+    <style name="Theme.AppName" parent="Theme.Material3.DayNight.NoActionBar">
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+        <item name="android:windowLightStatusBar">true</item>
+        <item name="android:enforceNavigationBarContrast">false</item>
+    </style>
+</resources>
+```
+
+Add dep `com.google.android.material:material` for the parent theme to resolve.

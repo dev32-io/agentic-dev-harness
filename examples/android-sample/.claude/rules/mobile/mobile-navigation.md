@@ -1,74 +1,39 @@
 ---
 description: Mobile navigation -- typed routes, state-aware deep links, defined back behavior.
+paths: "**/*.kt,**/*.kts,**/*.swift"
 ---
 
 # Mobile Navigation
 
-Navigation is where mobile apps accumulate state-management
-debt. Stringly-typed routes and undefined back behavior are the
-two biggest sources. When a rule is unclear, see
-`platforms/mobile/docs/mobile-navigation-details.md`.
+Stringly-typed routes and undefined back behavior are mobile's two biggest sources of state-management debt.
 
-## Routes are typed, not stringly-typed paths
+## Routes — typed, not stringly
 
-- A destination is a value of a closed sum -- an enum (Swift) or
-  sealed class (Kotlin) -- with the destination's required
-  arguments as associated values / properties.
-- The router accepts only that typed value. Raw `String` paths
-  cross the boundary only at the URL parser and the URL formatter.
-- The compiler then enforces that every destination has the
-  arguments it needs. Adding a destination forces every dispatch
-  site to acknowledge it.
+- Destinations are values of a closed sum (sealed class / enum / @Serializable).
+- Router accepts only typed values; raw `String` paths cross the boundary at URL parse/format only.
+- Adding a destination forces every dispatch site to acknowledge it (exhaustive `when`).
 
-## Deep links land at the right STATE, not just the right screen
+## Deep links — land at the right STATE
 
-- A deep link does NOT just push a screen. It pre-populates the
-  state the user reasonably expects to find: the right tab
-  selected, the right item highlighted, the right filter applied.
-- Define for each linkable destination: what loads synchronously
-  from the URL, what is fetched async, and what the loading-state
-  UI looks like while the async work runs.
-- The URL is therefore a serialized form of "where the user is."
-  Round-tripping (read current state → format URL → re-parse →
-  state) MUST equal the original state.
+- Pre-populate the state the user expects: right tab, right item, right filter.
+- Define per linkable destination: synchronous from URL, async, and loading-state UI.
+- Round-trip MUST be lossless: state → URL → parse → state equals original.
 
-## Every screen has a defined "back" target
+## Back — defined per screen
 
-- "Back" is not a free variable. For every screen, the spec
-  answers: where does back go? The system back gesture, the
-  in-screen back button, and the navigation-bar back chevron
-  MUST agree.
-- After a multi-step flow (e.g. checkout), back from the
-  confirmation screen does NOT pop into the middle of the flow.
-  The flow is replaced; back returns to the entry surface.
-- Modals: dismissing a modal restores the underlying screen as
-  it was. Tasks inside a modal do not leak back-stack entries
-  into the parent.
+- Every screen has one back target. System gesture, in-screen back button, and navbar chevron MUST agree.
+- After multi-step flows (e.g. checkout), back from confirmation does NOT re-enter the flow.
+- Modal dismiss restores underlying screen as-was; modal back-stack is local.
 
-## Tabs are roots, not pushable destinations
+## Tabs — roots, not pushable
 
-- A tab is a navigation root with its own back stack. Switching
-  tabs does NOT push onto a global stack.
-- A deep link into a tabbed app selects the right tab AND drives
-  that tab's stack to the destination. The other tabs retain
-  their state.
+- Tabs are roots with their own back stacks. Switching tabs does NOT push onto a global stack.
+- Deep link into tabbed app selects the right tab AND drives that tab's stack; other tabs keep state.
 
-## Forbidden patterns
+## Forbidden
 
-- Passing a giant object through the route. Pass the ID; refetch
-  on the other side. Routes get serialized for restore; large
-  payloads break that.
-- "Navigate by side effect" -- mutating a global variable and
-  then letting the next render notice. Navigation is an explicit
-  call; the call site is searchable.
-- Conditional `back` behavior that depends on how the user got
-  there. If the screen needs to know its caller, that is a flow
-  with an explicit entry point, not free-form navigation.
+- Passing large objects through routes. Pass the ID; refetch.
+- Navigation by side effect (mutating a global + letting next render notice).
+- Back behavior conditional on caller. If the screen needs to know its caller, it's a flow with an explicit entry.
 
-## Why this discipline matters
-
-The agent that reads a stringly-typed `navigator.push("/x/y")`
-cannot tell what arguments `/x/y` needs. The agent that reads
-`navigator.go(.product(id: pid))` sees the contract in the type.
-Typed routes plus defined back behavior turn navigation from
-folk knowledge into a property of the code.
+Platform mapping: Android → Navigation Compose 2.8+ + `@Serializable` routes. iOS → `NavigationStack` + `Route` enum. See `platforms/mobile/docs/mobile-navigation-details.md`.

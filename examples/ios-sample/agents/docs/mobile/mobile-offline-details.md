@@ -175,3 +175,25 @@ syncer.drainStream(streamKey):
 A feature with no matrix coverage of these rows has an undefined
 offline behavior. The undefined behavior will be defined, in
 the worst possible way, by your first user on a flaky train.
+
+## Platform mapping (audit M2)
+
+### Android stack
+
+- Local store: Room (typed SQLite) + DataStore Preferences for small kv.
+- Outbox: Room table keyed by `operationId` (UUID), processed by a `CoroutineWorker` chained on connectivity constraint.
+- Reachability: `ConnectivityManager.NetworkCallback` → `MutableStateFlow<NetworkState>`.
+- Auth: `EncryptedSharedPreferences` is **deprecated**; migrate to `androidx.security:security-crypto` replacements (Keystore-backed key wrapping).
+
+### iOS stack
+
+- Local store: SwiftData (iOS 17+) or Core Data; small kv via `UserDefaults` or Keychain for sensitive data.
+- Outbox: a `@Model` entity keyed by `operationId`, processed by a `BGProcessingTask` on reconnect.
+- Reachability: `NWPathMonitor` → `AsyncStream<NWPath.Status>` (modern) or Combine `Publisher` (legacy).
+- Auth: Keychain (`kSecAttrAccessibleAfterFirstUnlock`).
+
+### Cross-platform invariants
+
+- Operation IDs are UUIDs generated client-side.
+- Outbox entries serialized with stable schema (Proto / JSON); migration plan when schema changes.
+- Sync replay is at-least-once; server enforces idempotency.

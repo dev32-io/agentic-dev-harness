@@ -7,7 +7,6 @@ set -eu
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 FAILED=0
 MOBILE_PLATFORMS="android ios mobile"
-MOBILE_OVERLAY_PLATFORM="mobile"
 
 fail() {
     echo "FAIL: $1" >&2

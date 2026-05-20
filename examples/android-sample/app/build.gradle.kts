@@ -81,7 +81,7 @@ dependencies {
 
     androidTestImplementation(libs.compose.ui.test.junit4)
     androidTestImplementation(libs.compose.ui.test.manifest)
-    androidTestImplementation("com.google.dagger:hilt-android-testing:2.56")
-    kspAndroidTest("com.google.dagger:hilt-android-compiler:2.56")
-    androidTestImplementation("androidx.test.ext:junit:1.2.1")
+    androidTestImplementation(libs.hilt.android.testing)
+    kspAndroidTest(libs.hilt.compiler)
+    androidTestImplementation(libs.androidx.test.junit)
 }

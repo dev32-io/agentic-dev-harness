@@ -216,3 +216,35 @@ class Good : ViewModel() {
 
 The boundary owns the dispatcher choice. Callers don't repeat
 themselves; collectors are always on Main.
+
+## Data sources as Flow (audit G5)
+
+### Room
+
+```kotlin
+@Dao
+interface CounterDao {
+    @Query("SELECT * FROM counter LIMIT 1")
+    fun observe(): Flow<CounterRow?>
+
+    @Upsert
+    suspend fun upsert(row: CounterRow)
+}
+```
+
+Repository wraps and maps. ViewModel collects via `stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), initial)`.
+
+### DataStore Preferences
+
+```kotlin
+val Context.dataStore by preferencesDataStore("settings")
+
+class SettingsRepository(private val ds: DataStore<Preferences>) {
+    val dark: Flow<Boolean> = ds.data.map { it[booleanPreferencesKey("dark")] ?: false }
+    suspend fun setDark(v: Boolean) { ds.edit { it[booleanPreferencesKey("dark")] = v } }
+}
+```
+
+### DataStore Proto
+
+For typed payloads, prefer Proto DataStore over key-value Preferences. Serializer implements `Serializer<T>`; reads/writes are typed `Flow<T>`.

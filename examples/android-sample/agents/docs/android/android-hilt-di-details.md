@@ -184,3 +184,65 @@ What this gets us:
 
 Rule of thumb: if the body would be `return SomethingImpl(...)`
 where the argument list matches a constructor, use `@Binds`.
+
+## Hilt with KSP (audit A8)
+
+Catalog:
+
+```toml
+[versions]
+hilt = "2.56"
+hilt-navigation-compose = "1.3.0"
+ksp = "2.1.20-1.0.31"
+
+[libraries]
+hilt-android = { group = "com.google.dagger", name = "hilt-android", version.ref = "hilt" }
+hilt-compiler = { group = "com.google.dagger", name = "hilt-android-compiler", version.ref = "hilt" }
+hilt-navigation-compose = { group = "androidx.hilt", name = "hilt-navigation-compose", version.ref = "hilt-navigation-compose" }
+
+[plugins]
+hilt = { id = "com.google.dagger.hilt.android", version.ref = "hilt" }
+ksp = { id = "com.google.devtools.ksp", version.ref = "ksp" }
+```
+
+Module:
+
+```kotlin
+plugins {
+    alias(libs.plugins.hilt)
+    alias(libs.plugins.ksp)
+}
+dependencies {
+    implementation(libs.hilt.android)
+    ksp(libs.hilt.compiler)
+    implementation(libs.hilt.navigation.compose)
+}
+```
+
+## `hiltViewModel()` in composables
+
+```kotlin
+@Composable
+fun ProfileScreen(viewModel: ProfileViewModel = hiltViewModel()) {
+    val state by viewModel.state.collectAsStateWithLifecycle()
+    ProfileContent(state = state, onEvent = viewModel::dispatch)
+}
+```
+
+Activity must be `@AndroidEntryPoint`; Application must be `@HiltAndroidApp`.
+
+## `@TestInstallIn` example
+
+```kotlin
+@Module
+@TestInstallIn(
+    components = [SingletonComponent::class],
+    replaces = [DataModule::class],
+)
+object FakeDataModule {
+    @Provides @Singleton
+    fun providesAuthRepository(): AuthRepository = FakeAuthRepository()
+}
+```
+
+The test JVM target compiles the fake module instead of `DataModule` for any test annotated `@HiltAndroidTest`.

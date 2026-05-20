@@ -203,3 +203,26 @@ enum AuthError: Error, LocalizedError, Sendable {
 Compare against the anti-pattern: stringly-typed `NSError` bags
 where the call site has to memorize a `domain`/`code` pair. The
 enum form gives the compiler something to enforce.
+
+## Swift 6 — typed throws
+
+Swift 6 lands typed throws as a first-class feature:
+
+```swift
+enum DataError: Error {
+    case decoding(String)
+    case network(URLError)
+}
+
+func loadUser(id: String) async throws(DataError) -> User { ... }
+```
+
+Callers know the precise error type without `as?` casting. Use for boundary functions where the error set is closed and small. For functions whose error set is open / depends on dynamic dispatch, untyped `throws` remains correct.
+
+## Sendable upgrades
+
+Swift 6 makes strict concurrency the default. Common upgrades:
+
+- Reference types that have no mutable state: `final class FooView: View, Sendable {}` (View itself is implicitly `Sendable` when frozen).
+- Reference types with synchronized mutable state: `final class Cache: @unchecked Sendable {}` with internal lock + `// MARK: Sendable: invariant: all mutation through serialQueue` comment.
+- Closures passed across actors: declare `@Sendable`. The compiler will tell you when you forgot.

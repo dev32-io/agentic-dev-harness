@@ -1,65 +1,40 @@
 ---
-description: MVI architecture -- UiState/Intent/Effect, single source of truth per screen.
+description: MVI -- UiState/Intent/Effect, events-in-state primary, Channel secondary, type-safe Navigation.
 paths: "**/*.kt,**/*.kts"
 ---
 
 # MVI Architecture
 
-MVI (Model-View-Intent) gives every screen a single source of
-truth and a single mutation entry point. Reasoning about a
-screen reduces to: "what's the current `UiState`, and what
-`Intent` produced it?" When a rule is unclear, see
-`platforms/android/docs/android-architecture-mvi-details.md`.
+Every screen has a single source of truth and a single mutation entry point.
 
-## The three types per screen
+## Three types per screen
 
-- `UiState` -- a `data class` (or `sealed` if the screen has
-  fundamentally different shapes) holding everything the view
-  needs to render. Single source of truth for the screen.
-- `Intent` -- a `sealed interface` enumerating user actions and
-  external events the screen handles. Adding a new behavior =
-  adding a variant.
-- `Effect` -- a `sealed interface` for one-shot side effects
-  (navigation, snackbar, share-sheet). Effects are NOT state and
-  MUST NOT be modeled inside `UiState`.
+- `UiState` — `data class` (or sealed for shape-distinct cases) holding everything the view renders.
+- `Intent` — `sealed interface` of user actions + external events.
+- One-shot events — events-in-state primary; `Channel<Effect>` only when state can't model it.
 
 ## ViewModel shape
 
-- `state: StateFlow<UiState>` -- exposed read-only via
-  `_state.asStateFlow()`.
-- `effects: SharedFlow<Effect>` -- exposed read-only via
-  `_effects.asSharedFlow()`. Replay 0, extra-buffer-capacity 1.
-- `dispatch(intent: Intent): Unit` -- the only mutation entry
-  point. Composables call `dispatch(...)`; nothing else mutates.
-- Reduce in a `when (intent) { ... }` block (exhaustive over the
-  sealed type). Side work goes into `viewModelScope.launch`.
+- `state: StateFlow<UiState>` via `_state.asStateFlow()`.
+- `dispatch(intent: Intent): Unit` — only mutation entry point.
+- Reducer is exhaustive `when (intent) { ... }` over sealed type; side work in `viewModelScope.launch`.
 
-## Consumption in Composables
+## One-shot events — DO NOT use SharedFlow with `extraBufferCapacity=1`
 
-- Read state via `collectAsStateWithLifecycle()` -- the lifecycle-
-  aware variant pauses collection when the screen is not
-  STARTED, preventing wasted work on backgrounded screens.
-- Collect effects in a `LaunchedEffect(Unit) { vm.effects.collect { ... } }`
-  with a `when` that handles each Effect variant.
-- Composables MUST NOT mutate state directly. They send an
-  `Intent` via `viewModel.dispatch(...)`.
+Lifecycle-paused collection drops emissions.
+- Primary: model the event in `UiState` (`toast: String?`); composable dispatches `Consumed.Toast` after showing.
+- Secondary: `Channel<Effect>(Channel.BUFFERED)` exposed as `.receiveAsFlow()`. Channel guarantees delivery.
+
+## Consumption + navigation
+
+- Read state: `collectAsStateWithLifecycle()`. Composables MUST NOT mutate state; they `dispatch(Intent)`.
+- Type-safe nav (G7): Navigation Compose 2.8+ with `@Serializable` route objects + `composable<Route> { entry.toRoute<Route>() }`.
 
 ## What goes where
 
-- Business logic, validation, transformations -- in the reducer
-  or in `suspend` functions the ViewModel calls. NEVER in
-  composables.
-- I/O -- in a repository / use-case, behind an interface, called
-  from the ViewModel.
-- Theme, layout, formatting strings -- in the composable.
-- Navigation -- as an `Effect`; the screen's parent collects and
-  acts.
+- Business logic, validation: reducer / VM-called `suspend` functions.
+- I/O: repository / use-case behind interface.
+- Theme, layout, formatting: composable.
+- Navigation: trigger via state (pending route) or `Channel<Effect>`.
 
-## Why this discipline matters
-
-Without a single mutation entry point, screens drift toward
-"any composable can call any setter," and the state machine
-becomes invisible. With MVI, a code reader can answer "how do I
-get this screen into state X?" by reading the `Intent` sealed
-type and the reducer -- nothing else. Tests target the reducer
-directly: pass `(state, intent)` and assert `state'`.
+See `platforms/android/docs/android-architecture-mvi-details.md`.

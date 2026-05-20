@@ -138,3 +138,44 @@ diagnosable problem rather than a folk story.
 
 If a row in this matrix has no test, the lifecycle is a black
 box. Black-box lifecycles ship bugs.
+
+## Foreground service types (Android 14+, audit G4)
+
+Android 14 (API 34) requires every `startForeground` invocation to name a `foregroundServiceType` matching one declared in the manifest. Android 15 narrows allowed types; Android 16 enforces stricter background-start restrictions.
+
+Manifest:
+
+```xml
+<service android:name=".SyncService"
+    android:foregroundServiceType="dataSync"
+    android:exported="false" />
+```
+
+Start time:
+
+```kotlin
+ServiceCompat.startForeground(
+    this,
+    NOTIFICATION_ID,
+    notification,
+    ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC,
+)
+```
+
+Allowed types as of Android 16: `dataSync`, `mediaPlayback`, `phoneCall`, `location`, `mediaProjection`, `camera`, `microphone`, `health`, `remoteMessaging`, `systemExempted`, `shortService`. Pick the narrowest.
+
+Post-mortem visibility: `ApplicationExitInfo` (API 30+) records why the process was killed. Read on next launch for telemetry.
+
+## WorkManager + BGTaskScheduler (audit G6)
+
+Android: WorkManager for deferred work (`OneTimeWorkRequest`, `PeriodicWorkRequest`, `ExpeditedWorkRequest` for high-priority). Constraints: `setRequiresCharging`, `setRequiredNetworkType`. Unique work with `enqueueUniqueWork` to deduplicate.
+
+iOS: `BGTaskScheduler.shared.register(forTaskWithIdentifier:)` + `BGAppRefreshTask` for short refresh + `BGProcessingTask` for longer work. Declare `BGTaskSchedulerPermittedIdentifiers` in Info.plist.
+
+NEVER spin a raw thread / DispatchQueue for background work that should survive process death.
+
+## Runtime permissions (audit G8)
+
+Android 13+ requires `POST_NOTIFICATIONS`. Pattern: `ActivityResultContracts.RequestPermission()`, request at point of use (notification opt-in flow), show rationale if `shouldShowRequestPermissionRationale` is true, settings-bounce-back if denied permanently (`Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS)`).
+
+iOS: ATT framework (`ATTrackingManager.requestTrackingAuthorization`) for IDFA, similar settings-bounce-back via `UIApplication.openSettingsURLString`.

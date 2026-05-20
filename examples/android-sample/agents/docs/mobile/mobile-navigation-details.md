@@ -160,3 +160,43 @@ The agent reads `navigator.push(.product(id: pid))` and knows:
 None of these properties hold for `navigator.push("/p/" + x)`.
 The string form is a small convenience for the writer and a
 large tax on every reader after.
+
+## Platform mapping examples
+
+### Android — Navigation Compose 2.8+ with @Serializable routes
+
+```kotlin
+@Serializable object Home
+@Serializable data class Profile(val userId: String)
+
+NavHost(navController, startDestination = Home) {
+    composable<Home> { HomeScreen(...) }
+    composable<Profile> { backStackEntry ->
+        val route = backStackEntry.toRoute<Profile>()
+        ProfileScreen(userId = route.userId)
+    }
+}
+```
+
+Requires `androidx.navigation:navigation-compose:2.8+` + `org.jetbrains.kotlin.plugin.serialization`.
+
+### iOS — NavigationStack with Route enum
+
+```swift
+enum Route: Hashable {
+    case home
+    case profile(userId: String)
+}
+
+NavigationStack(path: $viewModel.path) {
+    HomeView()
+        .navigationDestination(for: Route.self) { route in
+            switch route {
+            case .home: HomeView()
+            case .profile(let id): ProfileView(userId: id)
+            }
+        }
+}
+```
+
+ViewModel mutates `path` (`[Route]`) to navigate; view binds.

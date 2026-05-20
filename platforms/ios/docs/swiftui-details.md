@@ -88,7 +88,7 @@ struct LoginForm: View {
 
 // Screen owns the ViewModel. The leaf knows nothing about it.
 struct LoginScreen: View {
-    @StateObject private var viewModel = LoginViewModel()
+    @State private var viewModel = LoginViewModel()
 
     var body: some View {
         LoginForm(

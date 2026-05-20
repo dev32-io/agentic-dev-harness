@@ -245,3 +245,154 @@ include(":core:designsystem")
 
 `includeBuild("buildLogic")` is what makes the convention
 plugins available to the rest of the build.
+
+## Module-shape catalog (audit G1)
+
+Mirrors Google's "Now in Android" pattern:
+
+```
+:app                        — wires DI, single Application class, Activity entry
+:feature:home               — composables + VM + nav for home flow
+:feature:profile            — same for profile
+:core:designsystem          — MaterialTheme, color/typography tokens
+:core:ui                    — reusable composables (loading states, scaffolds)
+:core:data                  — Room + DataStore + Retrofit repository impls
+:core:domain                — pure-Kotlin use-cases + models
+:core:network               — Retrofit + OkHttp setup, interceptors
+:core:testing               — Fakes, MainDispatcherRule, HiltTestActivity
+:benchmark                  — Baseline Profile + Macrobenchmark suite
+```
+
+Convention plugins (under `build-logic/convention/`):
+- `com.example.android.application` — applies Android + Kotlin + Compose plugins, sets compileSdk/minSdk, configures release R8.
+- `com.example.android.library` — Android library equivalent.
+- `com.example.android.feature` — library + Hilt plugin + Compose plugin.
+- `com.example.android.hilt` — applies Hilt + KSP plugin and depends on `:core:domain`.
+
+## KSP migration (audit A8)
+
+Old (KAPT):
+
+```kotlin
+plugins {
+    id("kotlin-kapt")
+}
+dependencies {
+    kapt(libs.hilt.compiler)
+}
+```
+
+New (KSP):
+
+```kotlin
+plugins {
+    alias(libs.plugins.ksp)
+}
+dependencies {
+    ksp(libs.hilt.compiler)
+}
+```
+
+Catalog adds:
+
+```toml
+[versions]
+ksp = "2.1.20-1.0.31"
+[plugins]
+ksp = { id = "com.google.devtools.ksp", version.ref = "ksp" }
+```
+
+Generated source paths shift slightly (`build/generated/ksp/...` vs `build/generated/source/kapt/...`); IDE indexing picks them up automatically.
+
+## Baseline Profile + Macrobenchmark (audit G2)
+
+Apply `androidx.baselineprofile` plugin in `:app/build.gradle.kts`:
+
+```kotlin
+plugins {
+    alias(libs.plugins.baselineprofile)
+}
+baselineProfile {
+    saveInSrc = true
+}
+dependencies {
+    baselineProfile(project(":benchmark"))
+}
+```
+
+`:benchmark/build.gradle.kts`:
+
+```kotlin
+plugins {
+    alias(libs.plugins.android.test)
+    alias(libs.plugins.baselineprofile)
+}
+android {
+    targetProjectPath = ":app"
+    experimentalProperties["android.experimental.self-instrumenting"] = true
+}
+dependencies {
+    implementation(libs.androidx.benchmark.macro.junit4)
+}
+```
+
+`:benchmark/src/main/java/.../BaselineProfileGenerator.kt`:
+
+```kotlin
+@RunWith(AndroidJUnit4::class)
+class BaselineProfileGenerator {
+    @get:Rule val rule = BaselineProfileRule()
+
+    @Test
+    fun generate() = rule.collect(packageName = "io.dev32.sample") {
+        pressHome()
+        startActivityAndWait()
+        // exercise critical user flows here
+    }
+}
+```
+
+Run on a real device (rooted or `-PuseConnectedDeviceForBaselineProfile=true`); the plugin generates `baseline-prof.txt` in `:app/src/main/`. R8 reads it on release builds and pre-compiles those paths.
+
+## Module-shape convention plugin example
+
+`build-logic/convention/src/main/kotlin/AndroidApplicationConventionPlugin.kt`:
+
+```kotlin
+class AndroidApplicationConventionPlugin : Plugin<Project> {
+    override fun apply(target: Project) = with(target) {
+        with(pluginManager) {
+            apply("com.android.application")
+            apply("org.jetbrains.kotlin.android")
+            apply("org.jetbrains.kotlin.plugin.compose")
+        }
+        extensions.configure<ApplicationExtension> {
+            compileSdk = 36
+            defaultConfig {
+                minSdk = 24
+                targetSdk = 36
+            }
+            compileOptions {
+                sourceCompatibility = JavaVersion.VERSION_21
+                targetCompatibility = JavaVersion.VERSION_21
+            }
+        }
+    }
+}
+```
+
+Module declares:
+
+```kotlin
+plugins {
+    `kotlin-dsl`
+}
+gradlePlugin {
+    plugins {
+        register("androidApplication") {
+            id = "com.example.android.application"
+            implementationClass = "AndroidApplicationConventionPlugin"
+        }
+    }
+}
+```

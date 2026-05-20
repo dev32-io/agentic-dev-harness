@@ -222,3 +222,54 @@ final class TestClock: Clock, @unchecked Sendable {
 The test runs in milliseconds even though production code would
 sleep for over a second. That is the entire point of clock
 injection: deterministic tests at full speed.
+
+## Swift Testing (iOS 17+ / Xcode 16+)
+
+```swift
+import Testing
+@testable import App
+
+struct CounterViewModelTests {
+    @Test func increments_state_on_increment() async {
+        let vm = await CounterViewModel(repository: FakeCounterRepository(initial: 0))
+        await vm.increment()
+        #expect(vm.count == 1)
+    }
+
+    @Test("state goes to error when repository throws")
+    func load_error() async {
+        let vm = await CounterViewModel(repository: FakeCounterRepository(error: TestError.boom))
+        await vm.load()
+        if case .error = vm.state {} else {
+            Issue.record("expected error state, got \(vm.state)")
+        }
+    }
+}
+```
+
+`@Test` replaces XCTestCase subclassing; `#expect` is the failure-recording assertion (non-fatal); `#require` is fatal-on-failure (use for preconditions that prevent further assertions). Parameterized tests via `@Test(arguments:)`.
+
+## Clock injection
+
+```swift
+protocol Clock: Sendable {
+    func now() -> Date
+    func sleep(for duration: Duration) async throws
+}
+
+struct SystemClock: Clock {
+    func now() -> Date { Date() }
+    func sleep(for duration: Duration) async throws { try await Task.sleep(for: duration) }
+}
+
+actor TestClock: Clock {
+    private var current: Date
+    init(now: Date = Date()) { self.current = now }
+    func now() -> Date { current }
+    func sleep(for duration: Duration) async throws {
+        current = current.addingTimeInterval(TimeInterval(duration.components.seconds))
+    }
+}
+```
+
+ViewModel takes `clock: Clock`; production injects `SystemClock()`, tests inject `TestClock`. Time-dependent logic (debouncing, timeouts, scheduling) becomes deterministic.

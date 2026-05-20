@@ -229,3 +229,104 @@ as the success path produces a `NavigateToHome` effect.
 
 The rule: mock at the SDK / network / static-Java boundary
 where you don't own the type; fake your own interfaces.
+
+## Robolectric + Compose on JVM (audit A13)
+
+Robolectric 4.13+ supports compileSdk 36. Configure:
+
+```kotlin
+// build.gradle.kts (Compose-aware library)
+android {
+    testOptions {
+        unitTests {
+            isIncludeAndroidResources = true
+        }
+    }
+}
+
+dependencies {
+    testImplementation(libs.robolectric)
+    testImplementation(libs.androidx.compose.ui.test.junit4)
+    testImplementation(libs.androidx.compose.ui.test.manifest)
+}
+```
+
+```kotlin
+@RunWith(AndroidJUnit4::class)
+@Config(sdk = [36])
+class CounterScreenRobolectricTest {
+    @get:Rule val composeTestRule = createComposeRule()
+
+    @Test fun increments_on_click() {
+        composeTestRule.setContent {
+            AppTheme { CounterScreen(state = CounterUiState(0), onIncrement = {}) }
+        }
+        composeTestRule.onNodeWithText("0").assertIsDisplayed()
+    }
+}
+```
+
+## Roborazzi screenshot regression
+
+```kotlin
+dependencies {
+    testImplementation(libs.roborazzi)
+    testImplementation(libs.roborazzi.compose)
+    testImplementation(libs.roborazzi.junit.rule)
+}
+```
+
+```kotlin
+@RunWith(AndroidJUnit4::class)
+@GraphicsMode(GraphicsMode.Mode.NATIVE)
+class CounterScreenSnapshotTest {
+    @get:Rule val composeTestRule = createComposeRule()
+
+    @Test fun snapshot_default() {
+        composeTestRule.setContent { AppTheme { CounterScreen(state = CounterUiState(0)) {} } }
+        composeTestRule.onRoot().captureRoboImage("src/test/snapshots/counter_default.png")
+    }
+}
+```
+
+Run `./gradlew recordRoborazziDebug` to create baselines; `./gradlew verifyRoborazziDebug` on PR to diff.
+
+## Macrobenchmark + JankStats (audit G2b)
+
+Cold start:
+
+```kotlin
+@RunWith(AndroidJUnit4::class)
+class StartupBenchmark {
+    @get:Rule val rule = MacrobenchmarkRule()
+
+    @Test
+    fun cold() = rule.measureRepeated(
+        packageName = "io.dev32.sample",
+        metrics = listOf(StartupTimingMetric()),
+        iterations = 5,
+        startupMode = StartupMode.COLD,
+    ) {
+        pressHome()
+        startActivityAndWait()
+    }
+}
+```
+
+JankStats in production Activity:
+
+```kotlin
+class MainActivity : ComponentActivity() {
+    private lateinit var jankStats: JankStats
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        enableEdgeToEdge()
+        jankStats = JankStats.createAndTrack(window) { frameData ->
+            if (frameData.isJank) Log.d("jank", "$frameData")
+        }
+        setContent { AppTheme { App() } }
+    }
+}
+```
+
+`JankStats.OnFrameListener` callback fires per frame; gate logging to debug builds or report to analytics on release with sampling.
