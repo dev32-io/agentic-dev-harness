@@ -191,12 +191,7 @@ if [ -d "$ROOT/platforms" ]; then
             if [ "$plat_name" = "$mp" ]; then is_mobile=1; break; fi
         done
         if [ "$is_mobile" -eq 1 ]; then
-            if [ "$plat_name" = "$MOBILE_OVERLAY_PLATFORM" ]; then
-                check_loc_strict "$plat_rules" 40
-            else
-                # TODO(phase-3/phase-4): drop cap to 40 after android/ios rule rewrites land.
-                check_loc_strict "$plat_rules" 100
-            fi
+            check_loc_strict "$plat_rules" 40
             check_no_code_blocks "$plat_rules"
             check_paths_required "$plat_rules"
             if [ "$plat_name" = "mobile" ]; then
