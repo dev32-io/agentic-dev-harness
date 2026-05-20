@@ -1,0 +1,16 @@
+name: lint
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Lint rules
+        run: sh tests/lint-rules.sh
+      - name: Lint self-test
+        run: sh tests/lint-rules-self-test.sh
