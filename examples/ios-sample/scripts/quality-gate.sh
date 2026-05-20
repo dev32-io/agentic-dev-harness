@@ -12,9 +12,9 @@ set -eu
 SCOPE="${1:-}"
 
 case "$SCOPE" in
-  lint|typecheck|test|all) ;;
-  "") echo "Usage: $0 <lint|typecheck|test|all>" >&2; exit 64 ;;
-  *)  echo "Unknown scope: $SCOPE (expected lint|typecheck|test|all)" >&2; exit 64 ;;
+  lint|typecheck|build|test|all) ;;
+  "") echo "Usage: $0 <lint|typecheck|build|test|all>" >&2; exit 64 ;;
+  *)  echo "Unknown scope: $SCOPE (expected lint|typecheck|build|test|all)" >&2; exit 64 ;;
 esac
 
 # ─── Platform detection ───
@@ -72,23 +72,27 @@ run_android() {
 }
 
 run_ios() {
-  case "$1" in
+  case "${1:-all}" in
     lint)
-      if command -v swiftlint >/dev/null 2>&1; then
-        swiftlint
-      else
-        echo "swiftlint not installed; skipping lint" >&2
-      fi
+      xcodebuild -project App.xcodeproj -scheme App -configuration Debug \
+        -sdk iphonesimulator \
+        -destination 'generic/platform=iOS Simulator' \
+        build CODE_SIGNING_ALLOWED=NO -quiet
       ;;
-    typecheck) xcodebuild build -quiet ;;
-    test)      xcodebuild test -quiet ;;
+    typecheck|build)
+      xcodebuild -project App.xcodeproj -scheme App -configuration Debug \
+        -sdk iphonesimulator \
+        -destination 'generic/platform=iOS Simulator' \
+        build CODE_SIGNING_ALLOWED=NO -quiet
+      ;;
+    test)
+      xcodebuild test -project App.xcodeproj -scheme App \
+        -sdk iphonesimulator \
+        -destination 'platform=iOS Simulator,name=iPhone 16' \
+        CODE_SIGNING_ALLOWED=NO -quiet
+      ;;
     all)
-      if command -v swiftlint >/dev/null 2>&1; then
-        swiftlint
-      else
-        echo "swiftlint not installed; skipping lint" >&2
-      fi
-      xcodebuild build -quiet && xcodebuild test -quiet
+      run_ios build && run_ios test
       ;;
   esac
 }
