@@ -217,3 +217,21 @@ extension LegacyClient {
 
 Wrap exactly once, at the boundary. Above the boundary, the rest
 of the code sees only `async` -- no completion handlers leak in.
+
+## Swift 6 strict mode (audit I2)
+
+`Config/App.xcconfig`:
+
+```
+SWIFT_VERSION = 6.0
+SWIFT_STRICT_CONCURRENCY = complete
+SWIFT_UPCOMING_FEATURE_REGION_BASED_ISOLATION = YES
+SWIFT_UPCOMING_FEATURE_ISOLATED_DEFAULT_VALUES = YES
+```
+
+Region-based isolation: the compiler tracks "regions" of objects that move between actors; types don't need to be `Sendable` if they can never be touched from two regions simultaneously. Dramatically reduces `@unchecked Sendable` annotations.
+
+Common migration pain:
+- Global mutable state → wrap in `actor` or annotate `@MainActor`.
+- ObjC types not `Sendable` → `@preconcurrency import UIKit` as escape hatch while migrating callers.
+- Closure captures that cross actors → declare closure `@Sendable` + `[weak self]` to break reference cycles.
