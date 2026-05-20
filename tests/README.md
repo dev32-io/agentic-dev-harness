@@ -45,8 +45,7 @@ When directories don't exist yet (pre-Phase-3), checks vacuously pass.
 Rule files under the mobile platforms (`android`, `ios`, `mobile`) MUST conform
 to this stricter contract on top of the base contract:
 
-1. **Length:** ≤40 lines including YAML frontmatter (temporarily 100 during the
-   May-2026 overhaul; tightens to 40 when Phase 2 lands).
+1. **Length:** `platforms/mobile/` overlay rules ≤40 lines including YAML frontmatter. `platforms/android/` and `platforms/ios/` rules ≤100 lines.
 2. **No fenced code blocks** (no ` ``` ` or `~~~`). Code lives in the paired
    `*-details.md` file under `platforms/<plat>/docs/`.
 3. **Frontmatter `paths:` is required** (in addition to `description:`).
