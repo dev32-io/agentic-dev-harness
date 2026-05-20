@@ -52,6 +52,23 @@ check_no_code_blocks() {
     done
 }
 
+check_paths_required() {
+    dir="$1"
+    [ -d "$dir" ] || return 0
+    for f in "$dir"/*.md; do
+        [ -e "$f" ] || continue
+        has_paths=$(awk '
+            { sub(/\r$/, "") }
+            NR == 1 { sub(/^\xef\xbb\xbf/, ""); if ($0 != "---") exit }
+            NR > 1 && /^---[[:space:]]*$/ { exit }
+            NR > 1 && /^paths:/ { print "yes"; exit }
+        ' "$f")
+        if [ "$has_paths" != "yes" ]; then
+            fail "$f: frontmatter missing required 'paths:' field"
+        fi
+    done
+}
+
 # Check 2/3: every rule file in $1 has paired <name>-details.md in $2.
 check_paired() {
     rules_dir="$1"
