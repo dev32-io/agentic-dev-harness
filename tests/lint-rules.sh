@@ -6,6 +6,7 @@ set -eu
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 FAILED=0
+MOBILE_PLATFORMS="android ios mobile"
 
 fail() {
     echo "FAIL: $1" >&2
@@ -21,6 +22,20 @@ check_loc() {
         lines=$(wc -l < "$f" | tr -d ' ')
         if [ "$lines" -gt 100 ]; then
             fail "$f: $lines lines (max 100)"
+        fi
+    done
+}
+
+# Check 1-strict: every *.md in $1 is <= $2 lines. Used for mobile platforms.
+check_loc_strict() {
+    dir="$1"
+    cap="$2"
+    [ -d "$dir" ] || return 0
+    for f in "$dir"/*.md; do
+        [ -e "$f" ] || continue
+        lines=$(wc -l < "$f" | tr -d ' ')
+        if [ "$lines" -gt "$cap" ]; then
+            fail "$f: $lines lines (max $cap)"
         fi
     done
 }
@@ -119,8 +134,22 @@ if [ -d "$ROOT/platforms" ]; then
     for plat_rules in "$ROOT"/platforms/*/rules; do
         [ -d "$plat_rules" ] || continue
         plat=$(dirname "$plat_rules")
+        plat_name=$(basename "$plat")
         plat_docs="$plat/docs"
-        check_loc "$plat_rules"
+        is_mobile=0
+        for mp in $MOBILE_PLATFORMS; do
+            if [ "$plat_name" = "$mp" ]; then is_mobile=1; break; fi
+        done
+        if [ "$is_mobile" -eq 1 ]; then
+            check_loc_strict "$plat_rules" 40
+            check_no_code_blocks "$plat_rules"
+            check_paths_required "$plat_rules"
+            if [ "$plat_name" = "mobile" ]; then
+                check_mobile_paths_globs "$plat_rules"
+            fi
+        else
+            check_loc "$plat_rules"
+        fi
         check_paired "$plat_rules" "$plat_docs"
         check_frontmatter "$plat_rules"
     done
