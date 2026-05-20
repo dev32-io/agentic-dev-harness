@@ -1,70 +1,39 @@
 ---
-description: Mobile offline-first -- observable network state, local cache, outbox sync with idempotency.
+description: Mobile offline-first -- observable network, local cache, idempotent outbox sync.
 paths: "**/*.kt,**/*.kts,**/*.swift"
 ---
 
 # Mobile Offline-First
 
-Connectivity on mobile is intermittent by default, not by
-exception. Features that only work online ship broken. When a
-rule is unclear, see
-`platforms/mobile/docs/mobile-offline-details.md`.
+Connectivity is intermittent by default. Features that only work online ship broken.
 
-## Network state is observable, every feature branches on it
+## Network state — observable, every feature branches
 
-- Reachability is a value the UI subscribes to, not a thing you
-  check once at function entry. The state changes mid-screen.
-- Every feature has an "offline" branch: read from cache, queue
-  writes, show an unobtrusive indicator that work is pending.
-- The offline branch is tested. A feature that has no offline
-  test does not have an offline behavior; it has an undefined
-  one.
+- Reachability is a value the UI subscribes to; it changes mid-screen.
+- Every feature has an offline branch: cache read, queued write, pending indicator.
+- Offline behavior is tested. No test = undefined behavior.
 
-## Reads cache to a local store
+## Reads — cache to a local store
 
-- Server responses are written to a persistent local store on
-  arrival. Subsequent reads hit the local store first; the
-  network is a background refresher, not a blocking dependency.
-- Cache entries carry a fetched-at timestamp. The UI may show
-  "Updated 5 min ago" rather than pretending data is live.
-- Stale-while-revalidate is the default: serve cached data
-  immediately; trigger a refresh; update the UI when it lands.
+- Server responses written to persistent store on arrival; subsequent reads hit cache first.
+- Cache entries carry fetched-at timestamps. UI shows freshness honestly.
+- Stale-while-revalidate is the default.
 
-## Writes queue to a local outbox
+## Writes — queue to a local outbox
 
-- A write produces TWO records: an optimistic local mutation
-  (the UI updates immediately) AND an outbox entry describing
-  the request to send when online.
-- The outbox is persistent. It survives process death; the
-  background syncer drains it on reconnect.
-- Until the outbox entry succeeds, the UI may indicate "pending
-  sync" on the affected item. Failures surface, not silently
-  retry-forever.
+- Each write produces two records: optimistic local mutation + outbox entry.
+- Outbox is persistent; survives process death; background syncer drains on reconnect.
+- Affected items show "pending sync" until success; failures surface, not silently retry-forever.
 
-## Sync on reconnect with idempotency
+## Sync — idempotent on reconnect
 
-- Every outbox entry has a stable client-generated operation ID.
-  Replays with the same ID are no-ops on the server side. This
-  is non-negotiable -- the network WILL retry under your code.
-- Order of operations is preserved within a related stream
-  (e.g. edits to the same record). Across unrelated streams,
-  parallelism is fine.
-- Conflicts (server-side concurrent edit) are resolved with a
-  named strategy: last-writer-wins, server-wins, or surface to
-  user. The strategy is per-resource, written down, and tested.
+- Every outbox entry has a stable client-generated operation ID; replays are no-ops server-side.
+- Order preserved within a related stream; parallel across unrelated streams.
+- Conflicts resolved with a named strategy per resource (LWW, server-wins, surface-to-user); written + tested.
 
-## Auth tokens survive offline
+## Auth — survives offline
 
-- An expired token while offline is NOT a fatal error. Queued
-  writes wait; reads come from cache. Token refresh happens on
-  reconnect.
-- Sign-out, however, MUST work offline: it clears local state
-  immediately and queues the server-side revocation in the
-  outbox.
+- Expired token while offline is not fatal: queued writes wait, reads use cache, refresh on reconnect.
+- Sign-out works offline: clears local state immediately; queues server revocation.
 
-## Why this discipline matters
-
-The agent that codes assuming "the network is there" produces
-features that ship to a subway, an elevator, or an airplane and
-appear broken. Offline-first is not a special-case mode; it is
-the default posture from which "online" is a happy enrichment.
+Platform mapping: Android → Room + DataStore + WorkManager. iOS → SwiftData / Core Data + Keychain + BGTaskScheduler. See `platforms/mobile/docs/mobile-offline-details.md`.
