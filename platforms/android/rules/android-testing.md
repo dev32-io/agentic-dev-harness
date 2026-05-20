@@ -1,80 +1,40 @@
 ---
-description: Android test discipline -- unit/Compose/instrumented/E2E layers, fakes over mocks.
+description: Android testing -- JVM unit, JVM Compose (Robolectric/Roborazzi), Compose UI, instrumented, E2E, Macrobenchmark.
 paths: "**/*.kt,**/*.kts"
 ---
 
 # Android Testing
 
-Four test layers, each with a clear job. Picking the wrong layer
-means tests that are either too slow to run often or too fast to
-catch the bug class they should. When a rule is unclear, see
-`platforms/android/docs/android-testing-details.md`.
+Six layers, each with a clear cost / scope tier. Picking the wrong tier means slow runs or weak assertions.
 
-## Layer 1 -- unit tests (JVM)
+## Layer 1 — JVM unit
 
-- Target: ViewModels, reducers, pure use-cases, mappers,
-  parsers. Anything with no Android-framework dependency.
-- Run on the local JVM (`src/test/java/`). No emulator. Fast.
-- Time control via `kotlinx-coroutines-test`: `runTest { ... }`
-  + a `TestDispatcher` (`StandardTestDispatcher` or
-  `UnconfinedTestDispatcher`). Use `advanceTimeBy`,
-  `advanceUntilIdle`.
-- This is the layer that catches reducer bugs and edge cases.
-  It should cover the most decisions per second.
+- ViewModels, reducers, pure use-cases, mappers, parsers; no Android framework.
+- `runTest { ... }` + `TestDispatcher` for time control. `MainDispatcherRule` swaps `Dispatchers.Main`.
 
-## Layer 2 -- Compose UI tests
+## Layer 1.5 — JVM with Android facades (G2)
 
-- Two flavors:
-  - `createComposeRule()` -- isolated composable test; no
-    Activity, no Hilt. Use for stateless components.
-  - `createAndroidComposeRule<HiltTestActivity>()` -- Hilt-
-    injected; use for screens that take a `hiltViewModel()`.
-- Drive with `onNodeWithText`, `onNodeWithTag`, `onNodeWithContentDescription`.
-- Use semantic matchers; don't poke at internals. If you need a
-  test tag, add `Modifier.testTag("...")` in the production code.
-- For Hilt-injected screens, swap dependencies via
-  `@TestInstallIn` (see `android-hilt-di.md`).
+- Robolectric + `createComposeRule()` runs Compose tests on JVM (no emulator). Roborazzi/Paparazzi for screenshot regression.
 
-## Layer 3 -- instrumented tests (`androidTest`)
+## Layer 2 — Compose UI tests (on-device)
 
-- Reserved for things that REQUIRE a real Android runtime:
-  Room migrations, DataStore I/O, deep-link / intent handling,
-  permission-flow paths, real ContentProvider plumbing.
-- Slower than unit tests; gate sparingly. Skip the platform if a
-  fake will do.
+- `createComposeRule()` stateless; `createAndroidComposeRule<HiltTestActivity>()` for DI-injected screens.
+- Drive with `onNodeWithText` / `onNodeWithTag` / `performClick` / `assertIsDisplayed`. NEVER `Thread.sleep`.
+- Hilt swaps via `@TestInstallIn`.
 
-## Layer 4 -- E2E via Maestro
+## Layers 3-4 — instrumented + E2E
 
-- Maestro flows live in `qa/android/charters/<charter>/<flow>.yaml`
-  and are driven by the QA charter session.
-- Promote a reproducible failure from QA to an E2E flow row in
-  the feature spec's e2e matrix (driven by `e2e-testing.md`).
-- E2E covers the happy path and the critical regressions only.
-  Drowning the gate in E2E flows means it stops running.
+- Layer 3 (`androidTest`): real Android runtime for Room migrations, DataStore I/O, deep links, permissions.
+- Layer 4 (Maestro): `.yaml` flows in `qa/android/charters/`; happy path + critical regressions only.
 
-## Fakes over mocks
+## Layer 5 — Macrobenchmark + JankStats (G2b)
 
-- Prefer hand-written `Fake<Interface>` implementations in
-  `src/sharedTest/` or `src/test/` for repository-shaped
-  dependencies. Fakes are typed, refactor-safe, and reusable.
-- Use a mocking framework (MockK) ONLY at adapter boundaries
-  (an SDK you don't own, a static-Java collaborator). Don't
-  mock your own interfaces -- write a fake.
-- A mock that asserts call counts to your own code is a refactor
-  trap. A fake that returns canned data is not.
+- `:benchmark` module with `MacrobenchmarkRule`; measure cold start, frame timing.
+- `androidx.metrics.performance:JankStats` registered in Activity for production frame metrics.
 
-## Naming and assertion discipline
+## Discipline
 
-- Test names describe behavior, not method name. Backtick form:
-  `` fun `returns NotFound when id is unknown`() ``.
-- One assertion per test where reasonable. If you must assert
-  multiple invariants, group them under one logical claim.
-- Arrange-Act-Assert layout; blank lines separate the phases.
+- Fakes over mocks for repo-shaped deps; mocks only at adapter/SDK boundaries.
+- Test names: `` `returns NotFound when id is unknown`() ``. One assertion per claim. Arrange-Act-Assert.
 
-## Why this discipline matters
-
-Tests fall into one of four cost tiers; mixing them up turns a
-1-second feedback loop into a 5-minute one. The rules above
-push every test toward the cheapest layer that can actually
-catch the bug. Fakes over mocks keeps tests from breaking on
-refactors that preserve behavior.
+See `platforms/android/docs/android-testing-details.md`.
