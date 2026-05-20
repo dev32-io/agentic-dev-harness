@@ -69,6 +69,26 @@ check_paths_required() {
     done
 }
 
+check_mobile_paths_globs() {
+    dir="$1"
+    [ -d "$dir" ] || return 0
+    for f in "$dir"/*.md; do
+        [ -e "$f" ] || continue
+        paths_line=$(awk '
+            { sub(/\r$/, "") }
+            NR == 1 { sub(/^\xef\xbb\xbf/, ""); if ($0 != "---") exit }
+            NR > 1 && /^---[[:space:]]*$/ { exit }
+            NR > 1 && /^paths:/ { print; exit }
+        ' "$f")
+        [ -n "$paths_line" ] || continue
+        for required in '*.kt' '*.kts' '*.swift'; do
+            if ! echo "$paths_line" | grep -Fq "$required"; then
+                fail "$f: mobile rule must include '$required' in paths: (found: $paths_line)"
+            fi
+        done
+    done
+}
+
 # Check 2/3: every rule file in $1 has paired <name>-details.md in $2.
 check_paired() {
     rules_dir="$1"
