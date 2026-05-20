@@ -1,80 +1,38 @@
 ---
-description: Gradle conventions -- version catalog, Kotlin DSL, convention plugins, R8.
+description: Gradle conventions -- version catalog, Kotlin DSL, convention plugins, KSP, R8 + Baseline Profile on release, module-shape catalog.
 paths: "**/*.kt,**/*.kts"
 ---
 
 # Gradle Build Conventions
 
-Gradle is the most-edited build system in Android, and the
-most-misused. Treat the build files like production code: typed,
-single-sourced, modular. When a rule is unclear, see
-`platforms/android/docs/android-gradle-details.md`.
+Build files are production code: typed, single-sourced, modular.
 
-## Version catalog -- single source of truth
+## Version catalog — single source
 
-- ALL versions, libraries, and plugins live in
-  `gradle/libs.versions.toml`. No version literals anywhere
-  else in the build.
-- Module build scripts reference dependencies as
-  `implementation(libs.kotlinx.coroutines)`, never as a
-  hard-coded `"org.jetbrains.kotlinx:kotlinx-coroutines:1.x.y"`.
-- Catalog organizes into three sections: `[versions]` (bare
-  numbers), `[libraries]` (group:artifact + version ref),
-  `[plugins]` (plugin id + version ref).
+- ALL versions/libraries/plugins in `gradle/libs.versions.toml`. NO version literals elsewhere.
+- Module scripts reference `libs.kotlinx.coroutines`, `alias(libs.plugins.compose.compiler)`, etc.
 
-## Kotlin DSL only
+## Kotlin DSL + convention plugins
 
-- ALL build scripts MUST be `.kts` (Kotlin DSL). No Groovy
-  `.gradle` files for new modules.
-- Kotlin DSL gives IDE completion, refactor support, and type
-  checking on the build graph. Groovy gives none of those.
+- All build scripts `.kts`. NO Groovy `.gradle` for new modules.
+- `build-logic/` included build hosts custom Gradle plugins. One convention per module shape.
+- Module scripts reduce to "apply convention + declare deps."
 
-## Convention plugins for shared module config
+## KSP, not KAPT
 
-- A `buildLogic/` (or `build-logic/`) directory contains an
-  included build that hosts custom Gradle plugins.
-- Each module-shape (Android app, Android library, Kotlin
-  library, Hilt feature) gets a convention plugin
-  (`com.example.android.application`, `com.example.android.library`,
-  etc.) that applies the right set of plugins and standard
-  configuration.
-- A module's `build.gradle.kts` reduces to "apply this
-  convention + declare these dependencies." Compile options,
-  Java version, Kotlin compiler args -- all in the convention.
+- Apply `com.google.devtools.ksp` plugin; replace every `kapt(...)` with `ksp(...)`.
+- KAPT is on deprecation path; KSP is ~2x faster on incremental.
 
-## No `allprojects { }` / `subprojects { }` in root
+## Module-shape catalog (G1)
 
-- The root `build.gradle.kts` should NOT loop over
-  `allprojects` or `subprojects` applying plugins. That hides
-  module behavior in a global file no one reads.
-- Push module behavior into convention plugins instead. A reader
-  of `featureX/build.gradle.kts` learns everything by reading
-  that file plus its applied conventions.
+- `:app` — wires DI root. `:feature:<name>` — depends on `:core:*` only; no feature→feature deps.
+- `:core:designsystem` theme/tokens, `:core:ui` shared composables, `:core:data` repos+sources.
+- `:core:domain` use-cases+models, `:core:testing` fakes+rules. Bottom-up deps only.
 
-## Java / Kotlin version
+## Java / Kotlin version + R8 + Baseline Profile (G2a)
 
-- `compileOptions { sourceCompatibility = JavaVersion.VERSION_21 ; targetCompatibility = JavaVersion.VERSION_21 }`
-  in the Android convention plugin.
-- `kotlinOptions { jvmTarget = "21" }` (or the new
-  `compilerOptions.jvmTarget` DSL).
-- Pinning a single Java version across modules avoids the
-  ClassCastException class of bugs that happen when one module
-  compiles to 17 and another to 21.
+- `compileOptions` sourceCompatibility + targetCompatibility = `VERSION_21`; `jvmTarget = JvmTarget.JVM_21`.
+- Release: `isMinifyEnabled = true`, `isShrinkResources = true`.
+- Apply `androidx.baselineprofile` in `:app` + `:benchmark`; baseline profile rules ship with APK.
 
-## R8 for release
-
-- Release build types MUST set `isMinifyEnabled = true` and
-  `isShrinkResources = true`. R8 ships, ProGuard does not.
-- Keep rules in `proguard-rules.pro` per module; the library
-  variant uses `consumerProguardFiles("consumer-rules.pro")`
-  to ship rules to consumers.
-- Debug builds skip minification for fast iteration; keep them
-  unminified.
-
-## Why this discipline matters
-
-A version catalog kills "upgrade compose in two places, miss
-the third" bugs. Convention plugins kill copy-paste in module
-scripts. R8 is the only shrinker that gets shipped with Android
-tooling -- skipping it doubles the apk and exposes obfuscation
-gaps. The rules above keep the build readable a year from now.
+See `platforms/android/docs/android-gradle-details.md`.
