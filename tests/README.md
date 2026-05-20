@@ -39,3 +39,24 @@ The script is POSIX `sh`, uses `set -eu`, and derives its own root via
 `$(cd "$(dirname "$0")/.." && pwd)` — runnable from any working directory.
 
 When directories don't exist yet (pre-Phase-3), checks vacuously pass.
+
+## Mobile rule contract (platforms/{android,ios,mobile}/rules/)
+
+Rule files under the mobile platforms (`android`, `ios`, `mobile`) MUST conform
+to this stricter contract on top of the base contract:
+
+1. **Length:** ≤40 lines including YAML frontmatter (temporarily 100 during the
+   May-2026 overhaul; tightens to 40 when Phase 2 lands).
+2. **No fenced code blocks** (no ` ``` ` or `~~~`). Code lives in the paired
+   `*-details.md` file under `platforms/<plat>/docs/`.
+3. **Frontmatter `paths:` is required** (in addition to `description:`).
+4. **Mobile-overlay rules** (`platforms/mobile/rules/*.md`) MUST list
+   `*.kt`, `*.kts`, and `*.swift` in their `paths:` glob.
+
+Rationale: Anthropic's documented attention budget for package rules is
+30-60 lines per file; with ~10 mobile rules path-loading on a single `.kt`
+edit, the budget compounds. Tighter rules + richer details files keeps the
+auto-loaded payload under the adherence ceiling.
+
+The self-test (`tests/lint-rules-self-test.sh`) verifies each check fires
+correctly on fixtures under `tests/fixtures/lint-rules/`.
