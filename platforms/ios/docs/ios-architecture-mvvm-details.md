@@ -90,10 +90,11 @@ the test substitutes a fake without touching the real network.
 ## LoginViewModel
 
 ```swift
+@Observable
 @MainActor
-final class LoginViewModel: ObservableObject {
-    @Published private(set) var state = LoginUIState()
-    @Published var route: LoginRoute?
+final class LoginViewModel {
+    private(set) var state = LoginUIState()
+    var route: LoginRoute?
 
     private let loginUseCase: LoginUseCase
 
@@ -152,10 +153,10 @@ Key properties of this ViewModel:
 
 ```swift
 struct LoginScreen: View {
-    @StateObject private var viewModel: LoginViewModel
+    @State private var viewModel: LoginViewModel
 
     init(useCase: LoginUseCase) {
-        _viewModel = StateObject(wrappedValue: LoginViewModel(loginUseCase: useCase))
+        _viewModel = State(wrappedValue: LoginViewModel(loginUseCase: useCase))
     }
 
     var body: some View {
@@ -233,25 +234,56 @@ func networkFailureShowsErrorMode() async {
 This is why we keep state and route separate, and why we keep
 I/O behind a protocol: each axis can be asserted independently.
 
-## When to use `@Observable` (iOS 17+)
+## Observation-based ViewModel (audit I3)
 
 ```swift
 @Observable
 @MainActor
-final class LoginViewModel {
-    private(set) var state = LoginUIState()
-    var route: LoginRoute?
-    // ... same methods.
+final class ProfileViewModel {
+    enum Route: Hashable {
+        case editProfile
+        case settings(section: SettingsSection)
+    }
+
+    var state: ProfileState = .loading
+    var path: [Route] = []
+    private let repository: ProfileRepository
+
+    init(repository: ProfileRepository) {
+        self.repository = repository
+        Task { await load() }
+    }
+
+    func load() async {
+        do {
+            state = .loaded(try await repository.fetch())
+        } catch {
+            state = .error(error.localizedDescription)
+        }
+    }
+
+    func editTapped() { path.append(.editProfile) }
 }
 
-struct LoginScreen: View {
-    @State private var viewModel: LoginViewModel
-    // ... same body.
+struct ProfileScreen: View {
+    @State private var vm: ProfileViewModel
+
+    init(repository: ProfileRepository) {
+        _vm = State(wrappedValue: ProfileViewModel(repository: repository))
+    }
+
+    var body: some View {
+        NavigationStack(path: $vm.path) {
+            ProfileContent(state: vm.state, onEdit: vm.editTapped)
+                .navigationDestination(for: ProfileViewModel.Route.self) { route in
+                    switch route {
+                    case .editProfile: EditProfileView()
+                    case .settings(let section): SettingsView(section: section)
+                    }
+                }
+        }
+    }
 }
 ```
 
-The `@Observable` macro replaces `ObservableObject` +
-`@Published` with property-level granularity (only views that
-read a specific property recompute when it changes). Prefer it
-on iOS 17+; fall back to `ObservableObject` only for projects
-that must support iOS 16 or earlier.
+`ProfileContent` is the stateless leaf — takes `state` + closures, no VM reference, easy to `#Preview`.
