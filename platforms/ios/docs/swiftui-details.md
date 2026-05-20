@@ -4,6 +4,57 @@ This file expands `platforms/ios/rules/swiftui.md`. The rule
 states the bar; this doc shows the patterns and the anti-patterns
 the agent reaches for when uncertain.
 
+## Observation (iOS 17+) — the primary state pattern
+
+```swift
+@Observable
+final class CounterViewModel {
+    var count: Int = 0
+    func increment() { count += 1 }
+}
+
+struct CounterView: View {
+    @State private var vm = CounterViewModel()
+
+    var body: some View {
+        VStack {
+            Text("\(vm.count)")
+            Button("Increment") { vm.increment() }
+        }
+    }
+}
+```
+
+`@Observable` is a macro applied to a `final class` (or actor). The macro:
+- Generates per-property tracking; SwiftUI re-renders only views that read changed properties.
+- Removes the `@Published` boilerplate.
+- Works seamlessly with `@State` (owner) and `@Bindable` (two-way binding into the VM).
+
+`@Bindable` example:
+
+```swift
+struct ProfileView: View {
+    @Bindable var vm: ProfileViewModel
+    var body: some View {
+        Form {
+            TextField("Name", text: $vm.name)   // two-way to vm.name
+            Toggle("Notifications", isOn: $vm.notifications)
+        }
+    }
+}
+```
+
+Pass the VM down via the `@Bindable` wrapper at the consuming view.
+
+## Pre-iOS-17 fallback (legacy)
+
+If your minimum target is iOS 16 or earlier, use the older property wrappers:
+
+- `@StateObject` — reference-type state OWNED by this view; SwiftUI keeps alive across recompositions. Use exactly once per object at the owning level.
+- `@ObservedObject` — reference-type state PASSED IN from a parent.
+
+Both require the class to conform to `ObservableObject` and properties to be marked `@Published`. Pattern is verbose; migrate to Observation once min target is iOS 17.
+
 ## State hoisting -- a concrete pattern
 
 The leaf is stateless. It declares what it needs and what it
