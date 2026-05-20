@@ -42,6 +42,10 @@ sealed interface LoginIntent {
     data class PasswordChanged(val value: String) : LoginIntent
     data object SubmitTapped : LoginIntent
     data object ForgotPasswordTapped : LoginIntent
+    sealed interface Consumed : LoginIntent {
+        data object Navigation : Consumed
+        data object Toast : Consumed
+    }
 }
 ```
 
@@ -73,11 +77,19 @@ class LoginViewModel @Inject constructor(
     private val _state = MutableStateFlow(LoginUiState())
     val state: StateFlow<LoginUiState> = _state.asStateFlow()
 
-    private val _effects = MutableSharedFlow<LoginEffect>(
-        replay = 0,
-        extraBufferCapacity = 1,
-    )
-    val effects: SharedFlow<LoginEffect> = _effects.asSharedFlow()
+    // Pattern A (preferred): events live in UiState.
+    // LoginUiState includes optional one-shot fields the view consumes + clears.
+    //   data class LoginUiState(
+    //     ...,
+    //     val navigateTo: Destination? = null,
+    //     val toast: String? = null,
+    //   )
+    // The composable reads navigateTo / toast; after acting, dispatches Consumed.
+    // Adding a Consumed variant to Intent forces "I saw this event" semantics.
+
+    // Pattern B (secondary): Channel for events that genuinely cannot live in state.
+    private val _effects = Channel<LoginEffect>(Channel.BUFFERED)
+    val effects: Flow<LoginEffect> = _effects.receiveAsFlow()
 
     fun dispatch(intent: LoginIntent) {
         when (intent) {
@@ -91,6 +103,8 @@ class LoginViewModel @Inject constructor(
             LoginIntent.ForgotPasswordTapped -> viewModelScope.launch {
                 _effects.emit(LoginEffect.NavigateToForgotPassword)
             }
+            LoginIntent.Consumed.Navigation -> _state.update { it.copy(navigateTo = null) }
+            LoginIntent.Consumed.Toast -> _state.update { it.copy(toast = null) }
         }
     }
 
@@ -127,6 +141,10 @@ Key properties of this reducer:
 - `_state.update { it.copy(...) }` is atomic; safe to call from
   multiple coroutines.
 
+### Why not `SharedFlow(replay=0, extraBufferCapacity=1)`?
+
+Because lifecycle-aware collection pauses the collector when the screen drops below STARTED. A `SharedFlow.emit` issued while the collector is paused will be dropped if the buffer is already drained. The exact bug the rule is supposed to prevent. Channel guarantees delivery via suspend-on-full; events-in-state guarantee delivery via state durability.
+
 ## The composable
 
 The screen is mostly view code. It collects state, collects
@@ -140,18 +158,21 @@ fun LoginScreen(
     viewModel: LoginViewModel = hiltViewModel(),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
-    val snackbarHostState = remember { SnackbarHostState() }
 
-    LaunchedEffect(Unit) {
-        viewModel.effects.collect { effect ->
-            when (effect) {
-                is LoginEffect.NavigateToHome ->
-                    onLoggedIn(effect.userId)
-                LoginEffect.NavigateToForgotPassword ->
-                    onForgotPassword()
-                is LoginEffect.ShowError ->
-                    snackbarHostState.showSnackbar(effect.message)
+    LaunchedEffect(state.navigateTo) {
+        state.navigateTo?.let { dest ->
+            when (dest) {
+                is Destination.Home -> onLoggedIn(dest.userId)
+                Destination.ForgotPassword -> onForgotPassword()
             }
+            viewModel.dispatch(LoginIntent.Consumed.Navigation)
+        }
+    }
+
+    LaunchedEffect(state.toast) {
+        state.toast?.let { msg ->
+            snackbarHostState.showSnackbar(msg)
+            viewModel.dispatch(LoginIntent.Consumed.Toast)
         }
     }
 
@@ -203,3 +224,33 @@ fun `submit with valid form navigates to home`() = runTest {
 
 This is why we keep state in state and effects in effects: the
 test asserts on both shapes independently.
+
+## Type-safe Navigation (audit A11 / G7)
+
+```kotlin
+@Serializable object LoginRoute
+@Serializable data class HomeRoute(val userId: String)
+
+NavHost(navController = nav, startDestination = LoginRoute) {
+    composable<LoginRoute> {
+        LoginScreen(
+            onLoggedIn = { uid -> nav.navigate(HomeRoute(uid)) { popUpTo(LoginRoute) { inclusive = true } } },
+        )
+    }
+    composable<HomeRoute> { entry ->
+        val route = entry.toRoute<HomeRoute>()
+        HomeScreen(userId = route.userId)
+    }
+}
+```
+
+Deep links via `navDeepLink<HomeRoute>(basePath = "https://example.com/user/{userId}")`.
+
+Required artifacts (catalog):
+
+```toml
+navigation-compose = { group = "androidx.navigation", name = "navigation-compose", version.ref = "navigation" }
+kotlinx-serialization-json = { group = "org.jetbrains.kotlinx", name = "kotlinx-serialization-json", version.ref = "serialization" }
+```
+
+Plugin: `org.jetbrains.kotlin.plugin.serialization`.
